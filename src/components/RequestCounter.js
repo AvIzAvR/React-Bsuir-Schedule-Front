@@ -20,7 +20,7 @@ function RequestCounter() {
 
     return (
         <div>
-            <h1>Number of Requests: {count}</h1>
+            <h5 className='request-counter'>Number of Requests: {count}</h5>
         </div>
     );
 }
