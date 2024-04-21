@@ -15,7 +15,6 @@ html, body {
 
 .App {
   background-color: #6255B3;
-  border-radius: 50px;
   color: white;
   min-height: 100vh;
   display: flex;
@@ -71,7 +70,6 @@ html, body {
   font-size: 2rem;
   text-align: center;
   font-family: 'inter', sans-serif;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
 }
 
 .sidebar {
@@ -353,7 +351,7 @@ ul {
   background-color: white; 
   padding: 20px;
   border-radius: 20px;
-  margin: 20px auto;
+  margin: 20px;
   display: flex;
   flex-direction: column;
   list-style: none;

@@ -20,47 +20,6 @@ function DeleteForms() {
         }
     };
 
-    const handleDeleteAuditorium = async () => {
-        if (idToDelete) {
-            try {
-            await axios.delete(`http://localhost:8080/schedule/auditorium/${idToDelete}`)
-                setMessage('Auditorium deleted successfully');
-                setIdToDelete('');
-            } catch (error) {
-                setMessage(`Error deleting audiorium: ${error.message}`);
-            }
-        } else {
-            setMessage("Please enter a valid ID.");
-        }
-    };
-
-    const handleDeleteGroup = async () => {
-        if (idToDelete) {
-            try {
-            await axios.delete(`http://localhost:8080/schedule/group/${idToDelete}`)
-                setMessage('Group deleted successfully');
-                setIdToDelete('');
-            } catch (error) {
-                setMessage(`Error deleting group: ${error.message}`);
-            }
-        } else {
-            setMessage("Please enter a valid ID.");
-        }
-    };
-
-    const handleDeleteSubject = async () => {
-        if (idToDelete) {
-            try { await axios.delete(`http://localhost:8080/schedule/subject/${idToDelete}`)
-                setMessage('Subject deleted successfully');
-                setIdToDelete('');
-            } catch (error) {
-                setMessage(`Error deleting subject: ${error.message}`);
-            }
-        } else {
-            setMessage("Please enter a valid ID.");
-        }
-    };
-
     return (
         <div className="delete-form-container">
             <h2 className='title'>Delete Schedule</h2>

@@ -8,6 +8,24 @@ function Schedule() {
     const [weekNumber, setWeekNumber] = useState('');
     const [subgroup, setSubgroup] = useState('');
 
+    const handleInputChange = (field, value) => {
+        if (field === "weekNumber") {
+            const number = parseInt(value, 10);
+            if (number >= 1 && number <= 4) {
+                setWeekNumber(value);
+            }
+        } else if (field === "subgroup") {
+            const number = parseInt(value, 10);
+            if (number >= 0 && number <= 2) {
+                setSubgroup(value);
+            }
+        } else if (field === "group") {
+            setGroup(value);
+        } else if (field === "dayOfWeek") {
+            setDayOfWeek(value);
+        }
+    };
+
     useEffect(() => {
         const allFieldsFilled = group && dayOfWeek && weekNumber && subgroup;
 
@@ -30,10 +48,10 @@ function Schedule() {
             <div className="control-panel">
                 <h1 className="title">Dashboard</h1>
                 <div className="input-group">
-                    <input type="text" value={group} onChange={(e) => setGroup(e.target.value)} placeholder="Group Number"/>
-                    <input type="text" value={dayOfWeek} onChange={(e) => setDayOfWeek(e.target.value)} placeholder="Day of Week"/>
-                    <input type="number" value={weekNumber} onChange={(e) => setWeekNumber(e.target.value)} placeholder="Week Number"/>
-                    <input type="number" value={subgroup} onChange={(e) => setSubgroup(e.target.value)} placeholder="Subgroup"/>
+                    <input type="text" value={group} onChange={(e) => handleInputChange('group', e.target.value)} placeholder="Group Number"/>
+                    <input type="text" value={dayOfWeek} onChange={(e) => handleInputChange('dayOfWeek', e.target.value)} placeholder="Day of Week"/>
+                    <input type="number" value={weekNumber} onChange={(e) => handleInputChange('weekNumber', e.target.value)} placeholder="Week Number"/>
+                    <input type="number" value={subgroup} onChange={(e) => handleInputChange('subgroup', e.target.value)} placeholder="Subgroup"/>
                 </div>
             </div>
             {schedule.length > 0 ? (
