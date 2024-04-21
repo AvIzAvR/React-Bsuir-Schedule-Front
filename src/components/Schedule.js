@@ -31,7 +31,7 @@ function Schedule() {
 
         const fetchSchedule = async () => {
             try {
-                const response = await axios.get(`https://javalabs-ystr.onrender.com/schedule?groupNumber=${group}&dayOfWeek=${dayOfWeek}&targetWeekNumber=${weekNumber}&numSubgroup=${subgroup}`);
+                const response = await axios.get(`${process.env.REACT_APP_API_URL}/schedule?groupNumber=${group}&dayOfWeek=${dayOfWeek}&targetWeekNumber=${weekNumber}&numSubgroup=${subgroup}`);
                 setSchedule(response.data);
             } catch (error) {
                 console.error("Ошибка при получении расписания:", error);

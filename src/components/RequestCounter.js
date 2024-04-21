@@ -1,3 +1,4 @@
+// RequestCounter.js
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
@@ -7,11 +8,12 @@ function RequestCounter() {
     useEffect(() => {
         const fetchCount = async () => {
             try {
-                const response = await axios.get('http://localhost:8080/schedule/count');
+                const response = await axios.get(`${process.env.REACT_APP_API_URL}/schedule/count`);
                 console.log("Полученные данные счетчика:", response.data);
                 setCount(response.data);
             } catch (error) {
                 console.error("Ошибка при получении количества запросов:", error);
+                setCount('Ошибка загрузки');
             }
         };
 

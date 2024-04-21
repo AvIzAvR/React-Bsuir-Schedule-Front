@@ -52,7 +52,7 @@ function UpdateForms() {
         }
     
         try {
-            await axios.put(`http://localhost:8080/schedule/${idToUpdate}`, scheduleData, {
+            await axios.put(`${process.env.REACT_APP_API_URL}/schedule/${idToUpdate}`, scheduleData, {
                 headers: {
                     'Content-Type': 'application/json'
                 }

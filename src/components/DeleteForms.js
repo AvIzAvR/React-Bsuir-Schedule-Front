@@ -9,7 +9,7 @@ function DeleteForms() {
     const handleDelete = async (endpoint) => {
         if (idToDelete) {
             try {
-                await axios.delete(`http://localhost:8080/${endpoint}/${idToDelete}`);
+                await axios.delete(`${process.env.REACT_APP_API_URL}/${endpoint}/${idToDelete}`);
                 setMessage(`Successfully deleted from ${endpoint}`);
                 setIdToDelete('');
             } catch (error) {
