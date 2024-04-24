@@ -32,9 +32,6 @@ function DeleteForms() {
                 className="delete-input"
             />
             <button onClick={() => handleDelete('schedule')} className="delete-button">Delete Schedule</button>
-            <button onClick={() => handleDelete('auditorium')} className="delete-button">Delete Auditorium</button>
-            <button onClick={() => handleDelete('group')} className="delete-button">Delete Group</button>
-            <button onClick={() => handleDelete('subject')} className="delete-button">Delete Subject</button>
         </div>
     );
 }

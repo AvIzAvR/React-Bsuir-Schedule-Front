@@ -51,12 +51,15 @@ function UpdateForms() {
             return;
         }
     
+        console.log("Sending data to server:", scheduleData);
+
         try {
-            await axios.put(`${process.env.REACT_APP_API_URL}/schedule/${idToUpdate}`, scheduleData, {
+            const response = await axios.put(`${process.env.REACT_APP_API_URL}/schedule/${idToUpdate}`, scheduleData, {
                 headers: {
                     'Content-Type': 'application/json'
                 }
             });
+            console.log("Server response:", response);
             setScheduleData({
                 courseInfo: {
                     classGroup: '',
