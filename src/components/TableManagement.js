@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 
-const TableManagement = ({ showNotification }) => {
+const TableManagement = ({ showNotification, isSuperuser }) => {
   const [activeTab, setActiveTab] = useState('browse');
   const [tables, setTables] = useState([]);
   const [tableData, setTableData] = useState([]);
@@ -20,6 +20,10 @@ const TableManagement = ({ showNotification }) => {
   const [editingRow, setEditingRow] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [columns, setColumns] = useState([]);
+  const [refTableTab, setRefTableTab] = useState(false);
+  const [refTables, setRefTables] = useState([]);
+  const [isTableReference, setIsTableReference] = useState(false);
+  const [checkingReference, setCheckingReference] = useState(false);
 
   const formatInterval = (value) => {
     if (typeof value === 'object' && value !== null) {
@@ -55,6 +59,46 @@ const TableManagement = ({ showNotification }) => {
     fetchTables();
   }, []);
 
+  useEffect(() => {
+    if (isSuperuser && refTableTab) {
+      loadRefTables();
+    }
+  }, [isSuperuser, refTableTab]);
+
+  useEffect(() => {
+    if (selectedTable) {
+      checkIfTableIsReference();
+    }
+  }, [selectedTable]);
+
+  const loadRefTables = async () => {
+    try {
+      const response = await api.getRefTables();
+      setRefTables(response.data || []);
+    } catch (err) {
+      console.error('Failed to load ref tables:', err);
+      showNotification('Failed to load reference tables', 'error');
+    }
+  };
+
+  const checkIfTableIsReference = async () => {
+    if (!selectedTable) {
+      setIsTableReference(false);
+      return;
+    }
+
+    setCheckingReference(true);
+    try {
+      const response = await api.isTableReference(selectedTable);
+      setIsTableReference(response.data === true);
+    } catch (err) {
+      console.error('Failed to check if table is reference:', err);
+      setIsTableReference(false);
+    } finally {
+      setCheckingReference(false);
+    }
+  };
+
   const loadTableData = async (tableName) => {
     if (!tableName) return;
     try {
@@ -67,7 +111,7 @@ const TableManagement = ({ showNotification }) => {
       const data = Array.isArray(response.data) ? response.data : [response.data];
       setTableData(data);
       setSelectedTable(tableName);
-      const cols = data.length > 0 ? Object.keys(data[0]) : (response.columns || []);
+      const cols = data.length > 0 ? Object.keys(data[0]) : [];
       setColumns(cols);
       showNotification(`Table ${tableName} loaded successfully`);
     } catch (err) {
@@ -223,17 +267,7 @@ const TableManagement = ({ showNotification }) => {
 
   const saveEditedRow = async () => {
     try {
-      const condition = `id = ${editingRow.id}`;
-      for (const [column, value] of Object.entries(editFormData)) {
-        if (editingRow[column] !== value) {
-          await api.updateTable(
-            selectedTable,
-            column,
-            typeof value === 'string' ? `'${value}'` : value,
-            condition
-          );
-        }
-      }
+      await api.updateRow(selectedTable, editingRow.id, editFormData);
       showNotification('Row updated successfully');
       setEditingRow(null);
       loadTableData(selectedTable);
@@ -247,6 +281,47 @@ const TableManagement = ({ showNotification }) => {
     setEditingRow(null);
   };
 
+  const handleAddToRefTable = async (tableName, isReference) => {
+    try {
+      await api.addTableToRef(tableName, isReference);
+      showNotification(`Table ${tableName} added to reference list`);
+      loadRefTables();
+      
+      // Если текущая таблица была добавлена в ref, обновляем статус
+      if (selectedTable === tableName) {
+        checkIfTableIsReference();
+      }
+    } catch (err) {
+      showNotification(`Failed to add table to reference: ${err.response?.data?.message || err.message}`, 'error');
+    }
+  };
+
+  const handleRemoveFromRefTable = async (tableName) => {
+    try {
+      await api.removeTableFromRef(tableName);
+      showNotification(`Table ${tableName} removed from reference list`);
+      loadRefTables();
+      
+      // Если текущая таблица была удалена из ref, обновляем статус
+      if (selectedTable === tableName) {
+        checkIfTableIsReference();
+      }
+    } catch (err) {
+      showNotification(`Failed to remove table from reference: ${err.response?.data?.message || err.message}`, 'error');
+    }
+  };
+
+  // Проверка, можно ли редактировать таблицу
+  const canEditTable = () => {
+    if (isSuperuser) return true; // Суперпользователь может всё
+    return !isTableReference; // Обычный пользователь может редактировать только НЕ справочные таблицы
+  };
+
+  // Проверка, можно ли редактировать строку
+  const canEditRow = () => {
+    return canEditTable();
+  };
+
   return (
     <div className="main-container">
       <div className="panel">
@@ -254,29 +329,98 @@ const TableManagement = ({ showNotification }) => {
           <h2>Table Operations</h2>
           <div className="form-row tabs">
             <button
-              onClick={() => setActiveTab('browse')}
-              className={`button ${activeTab === 'browse' ? 'button-primary' : ''}`}
+              onClick={() => { setActiveTab('browse'); setRefTableTab(false); }}
+              className={`button ${activeTab === 'browse' && !refTableTab ? 'button-primary' : ''}`}
             >
               Browse
             </button>
             <button
-              onClick={() => setActiveTab('create')}
-              className={`button ${activeTab === 'create' ? 'button-primary' : ''}`}
+              onClick={() => { setActiveTab('create'); setRefTableTab(false); }}
+              className={`button ${activeTab === 'create' && !refTableTab ? 'button-primary' : ''}`}
             >
               Create
             </button>
             <button
-              onClick={() => setActiveTab('modify')}
-              className={`button ${activeTab === 'modify' ? 'button-primary' : ''}`}
+              onClick={() => { setActiveTab('modify'); setRefTableTab(false); }}
+              className={`button ${activeTab === 'modify' && !refTableTab ? 'button-primary' : ''}`}
             >
               Modify
             </button>
+            {isSuperuser && (
+              <button
+                onClick={() => setRefTableTab(true)}
+                className={`button ${refTableTab ? 'button-primary' : ''}`}
+              >
+                Ref Tables
+              </button>
+            )}
           </div>
         </div>
         <div className="panel-content">
           {isLoading && <div className="loading">Loading...</div>}
           {error && <div className="error-message">{error}</div>}
-          {activeTab === 'browse' && (
+          
+          {refTableTab ? (
+            <div className="form-group">
+              <h3>Reference Tables Management</h3>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Table Name</th>
+                      <th>Is Reference</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {refTables.map((table) => (
+                      <tr key={table.table_name}>
+                        <td>{table.table_name}</td>
+                        <td>{table.is_reference ? 'Yes' : 'No'}</td>
+                        <td>
+                          <button
+                            onClick={() => handleRemoveFromRefTable(table.table_name)}
+                            className="button button-danger small"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div className="form-group">
+                <h4>Add Table to Reference</h4>
+                <select
+                  value={formData.tableName}
+                  onChange={(e) => setFormData({...formData, tableName: e.target.value})}
+                  className="form-select"
+                >
+                  <option value="">Select table</option>
+                  {tables.map(table => (
+                    <option key={table} value={table}>{table}</option>
+                  ))}
+                </select>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={formData.isReference}
+                    onChange={(e) => setFormData({...formData, isReference: e.target.checked})}
+                  />
+                  Is Reference
+                </label>
+                <button
+                  onClick={() => handleAddToRefTable(formData.tableName, formData.isReference)}
+                  className="button button-primary"
+                  disabled={!formData.tableName}
+                >
+                  Add to Reference
+                </button>
+              </div>
+            </div>
+          ) : activeTab === 'browse' && (
             <div className="form-group">
               <label>Select Table:</label>
               <select
@@ -290,9 +434,18 @@ const TableManagement = ({ showNotification }) => {
                   <option key={table} value={table}>{table}</option>
                 ))}
               </select>
+              {checkingReference && (
+                <div className="loading">Checking table type...</div>
+              )}
+              {selectedTable && isTableReference && !checkingReference && (
+                <div className="info-message">
+                  This is a reference table. Editing requires superuser privileges.
+                </div>
+              )}
             </div>
           )}
-          {activeTab === 'create' && (
+          
+          {!refTableTab && activeTab === 'create' && (
             <div className="form-group">
               <label>Table Name:</label>
               <input
@@ -313,16 +466,23 @@ const TableManagement = ({ showNotification }) => {
               <button
                 onClick={handleCreateTable}
                 className="button button-success"
-                disabled={isLoading}
+                disabled={isLoading || !isSuperuser}
+                title={!isSuperuser ? "Superuser required" : ""}
               >
                 {isLoading ? 'Creating...' : 'Create Table'}
               </button>
             </div>
           )}
-          {activeTab === 'modify' && selectedTable && (
+          
+          {!refTableTab && activeTab === 'modify' && selectedTable && (
             <>
               <div className="form-group">
                 <h3>Modify Table: {selectedTable}</h3>
+                {isTableReference && !isSuperuser && !checkingReference && (
+                  <div className="warning-message">
+                    This is a reference table. Only superusers can modify it.
+                  </div>
+                )}
                 <div className="form-row">
                   <div className="form-control">
                     <label>Column Name:</label>
@@ -331,7 +491,8 @@ const TableManagement = ({ showNotification }) => {
                       name="columnName"
                       value={formData.columnName}
                       onChange={handleChange}
-                      disabled={isLoading}
+                      disabled={isLoading || !canEditTable() || checkingReference}
+                      title={!canEditTable() ? "Editing not allowed for this table" : ""}
                     />
                   </div>
                   <div className="form-control">
@@ -340,7 +501,8 @@ const TableManagement = ({ showNotification }) => {
                       name="columnType"
                       value={formData.columnType}
                       onChange={handleChange}
-                      disabled={isLoading}
+                      disabled={isLoading || !canEditTable() || checkingReference}
+                      title={!canEditTable() ? "Editing not allowed for this table" : ""}
                     >
                       <option value="VARCHAR(255)">VARCHAR(255)</option>
                       <option value="INT">INT</option>
@@ -355,14 +517,16 @@ const TableManagement = ({ showNotification }) => {
                   <button
                     onClick={handleAddColumn}
                     className="button button-primary"
-                    disabled={isLoading}
+                    disabled={isLoading || !canEditTable() || checkingReference}
+                    title={!canEditTable() ? "Editing not allowed for this table" : ""}
                   >
                     {isLoading ? 'Adding...' : 'Add Column'}
                   </button>
                   <button
                     onClick={handleDropColumn}
                     className="button button-danger"
-                    disabled={isLoading}
+                    disabled={isLoading || !canEditTable() || checkingReference}
+                    title={!canEditTable() ? "Editing not allowed for this table" : ""}
                   >
                     {isLoading ? 'Dropping...' : 'Drop Column'}
                   </button>
@@ -378,7 +542,8 @@ const TableManagement = ({ showNotification }) => {
                       name="columnName"
                       value={formData.columnName}
                       onChange={handleChange}
-                      disabled={isLoading}
+                      disabled={isLoading || !canEditTable() || checkingReference}
+                      title={!canEditTable() ? "Editing not allowed for this table" : ""}
                     />
                   </div>
                   <div className="form-control">
@@ -388,7 +553,8 @@ const TableManagement = ({ showNotification }) => {
                       name="newValue"
                       value={formData.newValue}
                       onChange={handleChange}
-                      disabled={isLoading}
+                      disabled={isLoading || !canEditTable() || checkingReference}
+                      title={!canEditTable() ? "Editing not allowed for this table" : ""}
                     />
                   </div>
                 </div>
@@ -400,13 +566,15 @@ const TableManagement = ({ showNotification }) => {
                     value={formData.condition}
                     onChange={handleChange}
                     placeholder="id = 1"
-                    disabled={isLoading}
+                    disabled={isLoading || !canEditTable() || checkingReference}
+                    title={!canEditTable() ? "Editing not allowed for this table" : ""}
                   />
                 </div>
                 <button
                   onClick={handleUpdateTable}
                   className="button button-primary"
-                  disabled={isLoading}
+                  disabled={isLoading || !canEditTable() || checkingReference}
+                  title={!canEditTable() ? "Editing not allowed for this table" : ""}
                 >
                   {isLoading ? 'Updating...' : 'Update Data'}
                 </button>
@@ -417,12 +585,14 @@ const TableManagement = ({ showNotification }) => {
                     value={formData.rowData}
                     onChange={handleChange}
                     placeholder='{"column1": "value1", "column2": "value2"}'
-                    disabled={isLoading}
+                    disabled={isLoading || !canEditTable() || checkingReference}
+                    title={!canEditTable() ? "Editing not allowed for this table" : ""}
                   />
                   <button
                     onClick={handleInsertRow}
                     className="button button-primary"
-                    disabled={isLoading}
+                    disabled={isLoading || !canEditTable() || checkingReference}
+                    title={!canEditTable() ? "Editing not allowed for this table" : ""}
                   >
                     {isLoading ? 'Inserting...' : 'Insert Row'}
                   </button>
@@ -431,7 +601,8 @@ const TableManagement = ({ showNotification }) => {
                   <button
                     onClick={handleDropTable}
                     className="button button-danger"
-                    disabled={isLoading}
+                    disabled={isLoading || !isSuperuser}
+                    title={!isSuperuser ? "Superuser required" : ""}
                   >
                     {isLoading ? 'Dropping...' : 'Drop Table'}
                   </button>
@@ -441,9 +612,21 @@ const TableManagement = ({ showNotification }) => {
           )}
         </div>
       </div>
+      
       <div className="panel results-panel">
         <div className="panel-header">
           <h2>Table Data: {selectedTable || 'none'}</h2>
+          {selectedTable && (
+            <div className="table-info">
+              {checkingReference ? (
+                <span className="loading-badge">Checking...</span>
+              ) : isTableReference ? (
+                <span className="ref-table-badge">Reference Table</span>
+              ) : (
+                <span className="regular-table-badge">Regular Table</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="panel-content">
           {isLoading ? (
@@ -473,6 +656,8 @@ const TableManagement = ({ showNotification }) => {
                                 name={key}
                                 value={editFormData[key] || ''}
                                 onChange={handleEditChange}
+                                disabled={!canEditRow() || checkingReference}
+                                title={!canEditRow() ? "Editing not allowed for this table" : ""}
                               />
                             ) : (
                               key === 'duration' || key === 'warranty_period'
@@ -487,6 +672,8 @@ const TableManagement = ({ showNotification }) => {
                               <button
                                 onClick={saveEditedRow}
                                 className="button button-success small"
+                                disabled={!canEditRow() || checkingReference}
+                                title={!canEditRow() ? "Editing not allowed for this table" : ""}
                               >
                                 Save
                               </button>
@@ -501,6 +688,8 @@ const TableManagement = ({ showNotification }) => {
                             <button
                               onClick={() => startEditing(row)}
                               className="button button-primary small"
+                              disabled={!canEditRow() || checkingReference}
+                              title={!canEditRow() ? "Editing not allowed for this table" : ""}
                             >
                               Edit
                             </button>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 
-const BackupView = ({ showNotification }) => {
+const BackupView = ({ showNotification, isSuperuser }) => {
   const [activeTab, setActiveTab] = useState('export');
   const [formData, setFormData] = useState({
     tableName: '',
@@ -192,7 +192,8 @@ const BackupView = ({ showNotification }) => {
                 <button 
                   onClick={handleBackup}
                   className="button button-primary"
-                  disabled={!formData.tableName || !formData.filename}
+                  disabled={!formData.tableName || !formData.filename || !isSuperuser}
+                  title={!isSuperuser ? "Superuser required" : ""}
                 >
                   Backup Table
                 </button>
@@ -212,7 +213,8 @@ const BackupView = ({ showNotification }) => {
                 <button 
                   onClick={handleFullBackup}
                   className="button button-primary"
-                  disabled={!formData.filename}
+                  disabled={!formData.filename || !isSuperuser}
+                  title={!isSuperuser ? "Superuser required" : ""}
                 >
                   Full Backup
                 </button>
@@ -237,7 +239,8 @@ const BackupView = ({ showNotification }) => {
               <button 
                 onClick={handleImport}
                 className="button button-primary"
-                disabled={!file}
+                disabled={!file || !isSuperuser}
+                title={!isSuperuser ? "Superuser required" : ""}
               >
                 Import Backup
               </button>
@@ -274,3 +277,5 @@ const BackupView = ({ showNotification }) => {
     </div>
   );
 };
+
+export default BackupView;

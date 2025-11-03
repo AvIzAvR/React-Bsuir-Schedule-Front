@@ -1,252 +1,172 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: 'http://localhost:8080',
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-
-const sanitizeFilename = (filename) => {
-  return filename.replace(/\./g, '') + '.sql';
-};
-
-const sanitizeFilenameExcel = (filename) => {
-  return filename.replace(/\./g, '') + '.xlsx';
-};
+// Переменная для хранения пароля суперпользователя
+let superuserPassword = null;
 
 const apiService = {
-  
-  
-  
-  executePredefinedQuery(endpoint) {
-    return api.get(`/queries/${endpoint}`);
+  // Установка пароля суперпользователя
+  setSuperuserPassword(password) {
+    superuserPassword = password;
   },
-  
-  
-  executeCustomQuery(query) {
-    return api.post('/queries/executeCustom', null, { params: { query } });
-  },
-  
-  saveCustomQuery(queryName, query) {
-    return api.post('/queries/saveCustom', null, { params: { queryName, query } });
-  },
-  
-  getSavedQuery(queryName) {
-    return api.get('/queries/getCustom', { params: { queryName } });
-  },
-  
-  
-  
-  
-  getTableData(tableName) {
-    return this.executeCustomQuery(`SELECT * FROM ${tableName} ORDER BY id`);
-  },
-  
-  getAllTables() {
-    return api.get('/tables/getAllTables');
-  },
-  
-  
-  getTablesList() {
-    return this.executeCustomQuery('SHOW TABLES');
-  },
-  
-  
-  createTable(tableName, columns) {
-    return api.post('/tables/create', null, { params: { tableName, columns } });
-  },
-  
-  updateTable(tableName, columnName, newValue, condition) {
-    return api.put('/tables/update', null, { 
-      params: { tableName, columnName, newValue, condition } 
+
+  // Проверка пароля суперпользователя
+  validateSuperuserPassword(password) {
+    return api.post('/tables/auth/superuser', null, { 
+      params: { password } 
     });
   },
-  
-  insertRow(tableName, data) {
-    return api.post('/tables/insert', data, { 
+
+  // Добавление параметра суперпользователя к запросам
+  addSuperuserParam(params = {}) {
+    if (superuserPassword) {
+      return { ...params, superuserPassword };
+    }
+    return params;
+  },
+
+  // Проверка, является ли таблица справочной (работает для всех пользователей)
+  isTableReference(tableName) {
+    return api.get('/tables/ref/check', { 
       params: { tableName } 
     });
   },
-  
+
+  // Получение всех таблиц
+  getAllTables() {
+    return api.get('/tables/getAllTables');
+  },
+
+  // Получение данных таблицы
+  getTableData(tableName) {
+    return api.get(`/tables/${tableName}`);
+  },
+
+  // Получение строки по ID
+  getRow(tableName, id) {
+    return api.get(`/tables/${tableName}/${id}`);
+  },
+
+  // Создание таблицы
+  createTable(tableName, columns) {
+    const params = this.addSuperuserParam({ tableName, columns });
+    return api.post('/tables/create', null, { params });
+  },
+
+  // Обновление таблицы
+  updateTable(tableName, columnName, newValue, condition) {
+    const params = this.addSuperuserParam({ tableName, columnName, newValue, condition });
+    return api.put('/tables/update', null, { params });
+  },
+
+  // Вставка строки
+  insertRow(tableName, data) {
+    const params = this.addSuperuserParam({ tableName });
+    return api.post('/tables/insert', data, { params });
+  },
+
+  // Удаление таблицы
   dropTable(tableName) {
-    return api.delete('/tables/drop', { params: { tableName } });
+    const params = this.addSuperuserParam({ tableName });
+    return api.delete('/tables/drop', { params });
   },
-  
+
+  // Добавление колонки
   addColumn(tableName, columnName, columnType) {
-    return api.post('/tables/addColumn', null, { 
-      params: { tableName, columnName, columnType } 
-    });
+    const params = this.addSuperuserParam({ tableName, columnName, columnType });
+    return api.post('/tables/addColumn', null, { params });
   },
-  
+
+  // Удаление колонки
   dropColumn(tableName, columnName) {
-    return api.delete('/tables/dropColumn', { 
-      params: { tableName, columnName } 
-    });
+    const params = this.addSuperuserParam({ tableName, columnName });
+    return api.delete('/tables/dropColumn', { params });
   },
-  
-  
-  
+
+  // Экспорт в Excel
   exportToExcel(tableName, filename) {
     return api.get('/tables/export', { 
-      params: { tableName, filename: sanitizeFilename(filename) } 
+      params: { tableName, filename: filename + '.xlsx' } 
     });
   },
-  
+
+  // Бэкап таблицы
   backupTable(tableName, filename) {
-    return api.get('/tables/backup', { 
-      params: { tableName, filename: sanitizeFilename(filename) } 
-    });
+    const params = this.addSuperuserParam({ tableName, filename: filename + '.sql' });
+    return api.get('/tables/backup', { params });
   },
-  
+
+  // Полный бэкап
   fullBackup(filename) {
-    return api.get('/tables/fullBackup', { 
-      params: { filename: sanitizeFilename(filename) } 
-    });
+    const params = this.addSuperuserParam({ filename: filename + '.sql' });
+    return api.get('/tables/fullBackup', { params });
   },
-  
+
+  // Загрузка бэкапа
   loadBackup(file) {
     const formData = new FormData();
     formData.append('file', file);
+    const params = this.addSuperuserParam({});
     return api.post('/tables/loadBackup', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
-      }
+      },
+      params
     });
   },
-  
-  getTableColumns(tableName) {
-    return this.executeCustomQuery(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = '${tableName}'
-    `)
-    .then(response => {
-      // Преобразуем ответ в массив названий колонок
-      if (response.data && Array.isArray(response.data)) {
-        return {
-          columns: response.data.map(col => col.column_name),
-          success: true
-        };
-      }
-      return { columns: [], success: false };
-    })
-    .catch(error => {
-      console.error('Error fetching table columns:', error);
-      return { columns: [], success: false, error: error.message };
-    });
-  },
-  
+
+  // Удаление строки
   deleteRow(tableName, id) {
-    return api.delete('/tables/deleteRow', { params: { tableName, id } });
+    const params = this.addSuperuserParam({ tableName, id });
+    return api.delete('/tables/deleteRow', { params });
   },
-  
-  getClientsWithLastNameIva() {
-    return this.executePredefinedQuery('clients_with_last_name_Iva');
+
+  // Обновление строки
+  updateRow(tableName, id, updates) {
+    const params = this.addSuperuserParam({ tableName, id });
+    return api.patch('/tables/updateRow', updates, { params });
   },
-  
-  getClientsWithCars() {
-    return this.executePredefinedQuery('clients_with_cars');
+
+  // Выполнение пользовательского запроса
+  executeCustomQuery(query) {
+    return api.post('/queries/executeCustom', null, { params: { query } });
   },
-  
-  getYoungClientsCount() {
-    return this.executePredefinedQuery('young_clients_count');
+
+  // Сохранение запроса
+  saveCustomQuery(queryName, query) {
+    return api.post('/queries/saveCustom', null, { params: { queryName, query } });
   },
-  
-  
-  getCarsAudiAfter2015() {
-    return this.executePredefinedQuery('cars_audi_after_2015');
+
+  // Получение сохраненного запроса
+  getSavedQuery(queryName) {
+    return api.get('/queries/getCustom', { params: { queryName } });
   },
-  
-  getCarCountByBrand() {
-    return this.executePredefinedQuery('car_count_by_brand');
+
+  // Методы для ref_table (только для суперпользователя)
+  getRefTables() {
+    const params = this.addSuperuserParam({});
+    return api.get('/tables/ref/list', { params });
   },
-  
-  
-  getStosWorkingHoursAndAddress() {
-    return this.executePredefinedQuery('stos_working_hours_and_address');
+
+  addTableToRef(tableName, isReference) {
+    const params = this.addSuperuserParam({ tableName, isReference });
+    return api.post('/tables/ref/add', null, { params });
   },
-  
-  getTop3StosByEmployeeCount() {
-    return this.executePredefinedQuery('top3_stos_by_employee_count');
+
+  removeTableFromRef(tableName) {
+    const params = this.addSuperuserParam({ tableName });
+    return api.delete('/tables/ref/remove', { params });
   },
-  
-  
-  getEmployeesHighSalaryStreetL() {
-    return this.executePredefinedQuery('employees_high_salary_street_L');
-  },
-  
-  getEmployeesLowSalaryHighOrderAmount() {
-    return this.executePredefinedQuery('employees_low_salary_high_order_amount');
-  },
-  
-  getEmployeesWithAboveAverageSalary() {
-    return this.executePredefinedQuery('employees_with_above_average_salary');
-  },
-  
-  
-  getCompletedOrdersWithStreetAddress() {
-    return this.executePredefinedQuery('completed_orders_with_street_address');
-  },
-  
-  getIncompleteOrders() {
-    return this.executePredefinedQuery('incomplete_orders');
-  },
-  
-  getMostExpensiveOrder() {
-    return this.executePredefinedQuery('most_expensive_order');
-  },
-  
-  getTotalCompletedOrdersSum() {
-    return this.executePredefinedQuery('total_completed_orders_sum');
-  },
-  
-  
-  getSparePartsInExpensiveOrders() {
-    return this.executePredefinedQuery('spare_parts_in_expensive_orders');
-  },
-  
-  getSparePartsWithLowStock() {
-    return this.executePredefinedQuery('spare_parts_with_low_stock');
-  },
-  
-  getTotalInventoryValue() {
-    return this.executePredefinedQuery('total_inventory_value');
-  },
-  
-  
-  getAverageServiceCostByCategory() {
-    return this.executePredefinedQuery('average_service_cost_by_category');
-  },
-  
-  getTop5Services() {
-    return this.executePredefinedQuery('top5_services');
-  },
-  
-  
-  getOrdersWithBoschParts() {
-    return this.executePredefinedQuery('orders_with_bosch_parts');
-  },
-  
-  getOrdersWithExpensiveServices() {
-    return this.executePredefinedQuery('orders_with_expensive_services');
-  },
-  
-  getStosHighSalaryEmployeesHighOrderAmount() {
-    return this.executePredefinedQuery('stos_high_salary_employees_high_order_amount');
-  },
-  
-  getEmployeesInStosWithHighOrderAmount() {
-    return this.executePredefinedQuery('employees_in_stos_with_high_order_amount');
-  },
-  
-  getStosWithHighSalaryEmployeesAndHighOrderAmount() {
-    return this.executePredefinedQuery('stos_with_high_salary_employees_and_high_order_amount');
-  },
-  
-  getStosWithEmployeesHighSalaryAndHighOrderAmount() {
-    return this.executePredefinedQuery('stos_with_employees_high_salary_and_high_order_amount');
+
+  // Предопределенные запросы
+  executePredefinedQuery(endpoint) {
+    return api.get(`/queries/${endpoint}`);
   }
 };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 
-const QueryView = ({ showNotification }) => {
+const QueryView = ({ showNotification, isSuperuser }) => {
   const [queryResults, setQueryResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [customQuery, setCustomQuery] = useState('');
